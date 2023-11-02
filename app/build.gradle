@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace 'com.mysteryty.atticus.mvvm'
-    compileSdk 33
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.mysteryty.atticus.mvvm"
         minSdk 31
-        targetSdk 33
+        targetSdk 34
         versionCode 1
         versionName "1.0"
 
@@ -45,7 +45,7 @@ dependencies {
     implementation 'androidx.navigation:navigation-ui-ktx:2.5.3'
 
     // implementation retrofit
-    implementation 'om.squareup.retrofit2:retrofit:2.9.0'
+    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
 
     // implementation retrofit moshi
     implementation "com.squareup.retrofit2:converter-moshi:2.9.0"

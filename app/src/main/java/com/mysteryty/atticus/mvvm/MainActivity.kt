@@ -1,6 +1,7 @@
 package com.mysteryty.atticus.mvvm
 
 import android.os.Bundle
+import android.util.Log
 import com.google.android.material.snackbar.Snackbar
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.findNavController
@@ -9,50 +10,92 @@ import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
+import android.widget.Toast
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.GridLayoutManager
 import com.mysteryty.atticus.mvvm.databinding.ActivityMainBinding
+import com.mysteryty.atticus.mvvm.intent.MainIntent
+import com.mysteryty.atticus.mvvm.network.NetworkUtils
+import com.mysteryty.atticus.mvvm.state.MainState
+import com.mysteryty.atticus.mvvm.ui.adapter.MainViewModel
+import com.mysteryty.atticus.mvvm.ui.adapter.WallpaperAdapter
+import com.mysteryty.atticus.mvvm.viewmodel.ViewModelFactory
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
+
+    private lateinit var mainViewModel: MainViewModel
+
+    private var wallPaperAdapter = WallpaperAdapter(arrayListOf())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        //使用ViewBinding
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        //绑定ViewModel
+        mainViewModel = ViewModelProvider(this, ViewModelFactory(NetworkUtils.apiService))[MainViewModel::class.java]
+        //初始化
+        initView()
+        //观察ViewModel
+        observeViewModel()
+    }
 
-        setSupportActionBar(binding.toolbar)
+    /**
+     * 观察ViewModel
+     */
+    private fun observeViewModel() {
+        lifecycleScope.launch {
+            //状态收集
+            mainViewModel.state.collect {
+                when(it) {
+                    is MainState.Idle -> {
 
-        val navController = findNavController(R.id.nav_host_fragment_content_main)
-        appBarConfiguration = AppBarConfiguration(navController.graph)
-        setupActionBarWithNavController(navController, appBarConfiguration)
+                    }
+                    is MainState.Loading -> {
+                        binding.btnGetWallpaper.visibility = View.GONE
+                        binding.pbLoading.visibility = View.VISIBLE
+                    }
+                    is MainState.Wallpapers -> {     //数据返回
+                        binding.btnGetWallpaper.visibility = View.GONE
+                        binding.pbLoading.visibility = View.GONE
 
-        binding.fab.setOnClickListener { view ->
-            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                .setAction("Action", null).show()
+                        binding.rvWallpaper.visibility = View.VISIBLE
+                        it.wallpaper.let { paper ->
+                            wallPaperAdapter.addData(paper.res.vertical)
+                        }
+                        wallPaperAdapter.notifyDataSetChanged()
+                    }
+                    is MainState.Error -> {
+                        binding.pbLoading.visibility = View.GONE
+                        binding.btnGetWallpaper.visibility = View.VISIBLE
+                        Log.d("TAG", "observeViewModel: $it.error")
+                        Toast.makeText(this@MainActivity, it.error, Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
         }
     }
 
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        menuInflater.inflate(R.menu.menu_main, menu)
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        return when (item.itemId) {
-            R.id.action_settings -> true
-            else -> super.onOptionsItemSelected(item)
+    /**
+     * 初始化
+     */
+    private fun initView() {
+        //RV配置
+        binding.rvWallpaper.apply {
+            layoutManager = GridLayoutManager(this@MainActivity, 2)
+            adapter  = wallPaperAdapter
         }
-    }
-
-    override fun onSupportNavigateUp(): Boolean {
-        val navController = findNavController(R.id.nav_host_fragment_content_main)
-        return navController.navigateUp(appBarConfiguration)
-                || super.onSupportNavigateUp()
+        //按钮点击
+        binding.btnGetWallpaper.setOnClickListener {
+            lifecycleScope.launch{
+                //发送意图
+                mainViewModel.mainIntentChannel.send(MainIntent.GetWallpaper)
+            }
+        }
     }
 }
